@@ -1,0 +1,326 @@
+{
+  "categories": [
+    {
+      "name": "Women",
+      "slug": "women",
+      "description": "Women's everyday fashion, clothing and essentials.",
+      "isActive": true,
+      "sortOrder": 1
+    },
+    {
+      "name": "Men",
+      "slug": "men",
+      "description": "Men's everyday clothing and fashion essentials.",
+      "isActive": true,
+      "sortOrder": 2
+    },
+    {
+      "name": "Kids",
+      "slug": "kids",
+      "description": "Comfortable everyday clothing for children.",
+      "isActive": true,
+      "sortOrder": 3
+    }
+  ],
+  "collections": [
+    {
+      "name": "New Arrivals",
+      "slug": "new-arrivals",
+      "description": "Discover the latest additions to our collection.",
+      "isActive": true
+    },
+    {
+      "name": "Best Sellers",
+      "slug": "best-sellers",
+      "description": "Customer favourites and popular fashion essentials.",
+      "isActive": true
+    },
+    {
+      "name": "Everyday Essentials",
+      "slug": "everyday-essentials",
+      "description": "Versatile clothing for everyday comfort.",
+      "isActive": true
+    },
+    {
+      "name": "Plus Size",
+      "slug": "plus-size",
+      "description": "Comfortable and stylish inclusive-size clothing.",
+      "isActive": true
+    }
+  ],
+  "products": [
+    {
+      "name": "Classic Oversized Cotton T-Shirt",
+      "slug": "classic-oversized-cotton-t-shirt",
+      "description": "A premium-feel oversized cotton T-shirt with a relaxed silhouette. Designed for effortless everyday styling and comfort.",
+      "categorySlug": "women",
+      "collectionSlugs": ["new-arrivals", "everyday-essentials", "plus-size"],
+      "gender": "women",
+      "tags": ["t-shirt", "oversized", "cotton", "casual", "plus-size"],
+      "images": [
+        {
+          "url": "https://placehold.co/800x1000/E8DFD5/292524?text=Oversized+T-Shirt",
+          "alt": "Beige oversized cotton T-shirt"
+        }
+      ],
+      "brand": "The Fashion Store",
+      "isActive": true,
+      "isFeatured": true,
+      "variants": [
+        {
+          "sku": "TFS-W-OTS-BEI-S",
+          "size": "S",
+          "color": "Beige",
+          "price": 2490,
+          "compareAtPrice": 2990,
+          "stockQuantity": 15,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-W-OTS-BEI-M",
+          "size": "M",
+          "color": "Beige",
+          "price": 2490,
+          "compareAtPrice": 2990,
+          "stockQuantity": 20,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-W-OTS-BEI-L",
+          "size": "L",
+          "color": "Beige",
+          "price": 2490,
+          "compareAtPrice": 2990,
+          "stockQuantity": 12,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-W-OTS-BEI-XL",
+          "size": "XL",
+          "color": "Beige",
+          "price": 2490,
+          "compareAtPrice": 2990,
+          "stockQuantity": 10,
+          "isActive": true
+        }
+      ]
+    },
+    {
+      "name": "High Waist Straight Leg Jeans",
+      "slug": "high-waist-straight-leg-jeans",
+      "description": "Classic high-waisted straight-leg denim jeans with a flattering fit. A versatile essential for casual and smart-casual outfits.",
+      "categorySlug": "women",
+      "collectionSlugs": ["new-arrivals", "best-sellers"],
+      "gender": "women",
+      "tags": ["jeans", "denim", "high-waist", "straight-leg"],
+      "images": [
+        {
+          "url": "https://placehold.co/800x1000/718096/FFFFFF?text=Straight+Leg+Jeans",
+          "alt": "Blue high-waisted straight-leg jeans"
+        }
+      ],
+      "brand": "The Fashion Store",
+      "isActive": true,
+      "isFeatured": true,
+      "variants": [
+        {
+          "sku": "TFS-W-JNS-BLU-28",
+          "size": "28",
+          "color": "Blue",
+          "price": 4990,
+          "compareAtPrice": 5990,
+          "stockQuantity": 8,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-W-JNS-BLU-30",
+          "size": "30",
+          "color": "Blue",
+          "price": 4990,
+          "compareAtPrice": 5990,
+          "stockQuantity": 12,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-W-JNS-BLU-32",
+          "size": "32",
+          "color": "Blue",
+          "price": 4990,
+          "compareAtPrice": 5990,
+          "stockQuantity": 7,
+          "isActive": true
+        }
+      ]
+    },
+    {
+      "name": "Women's Relaxed Linen Shirt",
+      "slug": "womens-relaxed-linen-shirt",
+      "description": "A lightweight relaxed-fit shirt with a timeless design. Perfect for warm weather, everyday styling and comfortable layering.",
+      "categorySlug": "women",
+      "collectionSlugs": ["new-arrivals", "everyday-essentials"],
+      "gender": "women",
+      "tags": ["shirt", "linen", "relaxed-fit", "summer"],
+      "images": [
+        {
+          "url": "https://placehold.co/800x1000/E7DFD2/292524?text=Linen+Shirt",
+          "alt": "Cream relaxed-fit linen shirt"
+        }
+      ],
+      "brand": "The Fashion Store",
+      "isActive": true,
+      "isFeatured": false,
+      "variants": [
+        {
+          "sku": "TFS-W-LNS-CRM-S",
+          "size": "S",
+          "color": "Cream",
+          "price": 3990,
+          "compareAtPrice": 4490,
+          "stockQuantity": 10,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-W-LNS-CRM-M",
+          "size": "M",
+          "color": "Cream",
+          "price": 3990,
+          "compareAtPrice": 4490,
+          "stockQuantity": 15,
+          "isActive": true
+        }
+      ]
+    },
+    {
+      "name": "Men's Essential Crew Neck T-Shirt",
+      "slug": "mens-essential-crew-neck-t-shirt",
+      "description": "A classic crew-neck T-shirt designed for everyday comfort. Features a clean minimalist design and a regular fit.",
+      "categorySlug": "men",
+      "collectionSlugs": ["new-arrivals", "best-sellers", "everyday-essentials"],
+      "gender": "men",
+      "tags": ["men", "t-shirt", "crew-neck", "basic", "cotton"],
+      "images": [
+        {
+          "url": "https://placehold.co/800x1000/374151/FFFFFF?text=Mens+T-Shirt",
+          "alt": "Dark charcoal men's crew-neck T-shirt"
+        }
+      ],
+      "brand": "The Fashion Store",
+      "isActive": true,
+      "isFeatured": true,
+      "variants": [
+        {
+          "sku": "TFS-M-TSH-CHR-S",
+          "size": "S",
+          "color": "Charcoal",
+          "price": 1990,
+          "compareAtPrice": 2490,
+          "stockQuantity": 15,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-M-TSH-CHR-M",
+          "size": "M",
+          "color": "Charcoal",
+          "price": 1990,
+          "compareAtPrice": 2490,
+          "stockQuantity": 20,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-M-TSH-CHR-L",
+          "size": "L",
+          "color": "Charcoal",
+          "price": 1990,
+          "compareAtPrice": 2490,
+          "stockQuantity": 18,
+          "isActive": true
+        }
+      ]
+    },
+    {
+      "name": "Men's Slim Fit Denim Jeans",
+      "slug": "mens-slim-fit-denim-jeans",
+      "description": "Modern slim-fit denim jeans with a comfortable silhouette. Designed for versatile everyday casual styling.",
+      "categorySlug": "men",
+      "collectionSlugs": ["best-sellers"],
+      "gender": "men",
+      "tags": ["men", "jeans", "denim", "slim-fit"],
+      "images": [
+        {
+          "url": "https://placehold.co/800x1000/64748B/FFFFFF?text=Mens+Denim+Jeans",
+          "alt": "Men's blue slim-fit denim jeans"
+        }
+      ],
+      "brand": "The Fashion Store",
+      "isActive": true,
+      "isFeatured": false,
+      "variants": [
+        {
+          "sku": "TFS-M-JNS-BLU-30",
+          "size": "30",
+          "color": "Blue",
+          "price": 5490,
+          "compareAtPrice": 6490,
+          "stockQuantity": 9,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-M-JNS-BLU-32",
+          "size": "32",
+          "color": "Blue",
+          "price": 5490,
+          "compareAtPrice": 6490,
+          "stockQuantity": 14,
+          "isActive": true
+        }
+      ]
+    },
+    {
+      "name": "Kids Cotton Graphic T-Shirt",
+      "slug": "kids-cotton-graphic-t-shirt",
+      "description": "A soft and breathable graphic T-shirt designed for children's everyday activities. Comfortable and easy to wear.",
+      "categorySlug": "kids",
+      "collectionSlugs": ["new-arrivals", "everyday-essentials"],
+      "gender": "kids",
+      "tags": ["kids", "t-shirt", "graphic", "cotton"],
+      "images": [
+        {
+          "url": "https://placehold.co/800x1000/FDE68A/292524?text=Kids+T-Shirt",
+          "alt": "Yellow kids graphic cotton T-shirt"
+        }
+      ],
+      "brand": "The Fashion Store",
+      "isActive": true,
+      "isFeatured": true,
+      "variants": [
+        {
+          "sku": "TFS-K-TSH-YLW-4Y",
+          "size": "4Y",
+          "color": "Yellow",
+          "price": 1490,
+          "compareAtPrice": 1790,
+          "stockQuantity": 12,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-K-TSH-YLW-6Y",
+          "size": "6Y",
+          "color": "Yellow",
+          "price": 1490,
+          "compareAtPrice": 1790,
+          "stockQuantity": 15,
+          "isActive": true
+        },
+        {
+          "sku": "TFS-K-TSH-YLW-8Y",
+          "size": "8Y",
+          "color": "Yellow",
+          "price": 1490,
+          "compareAtPrice": 1790,
+          "stockQuantity": 10,
+          "isActive": true
+        }
+      ]
+    }
+  ]
+}

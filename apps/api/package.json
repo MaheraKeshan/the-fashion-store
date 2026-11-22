@@ -1,0 +1,33 @@
+{
+  "name": "@fashion-store/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "admin:create": "npm run build && node dist/scripts/create-admin.js",
+    "db:indexes": "tsx scripts/prepare-database-indexes.ts",
+    "import:products": "tsx scripts/import-products.ts",
+    "start": "node dist/server.js",
+    "test": "tsx --test tests/catalog-models.test.ts tests/cart.test.ts tests/store-settings.test.ts tests/order.test.ts tests/admin-orders.test.ts tests/admin-auth.test.ts tests/customer-auth.test.ts tests/production-readiness.test.ts",
+    "test:integration": "tsx --test tests/order-integration.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.7.5",
+    "helmet": "^8.0.0",
+    "mongoose": "^8.9.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.4",
+    "mongodb-memory-server": "^11.3.0",
+    "tsx": "^4.19.3"
+  }
+}

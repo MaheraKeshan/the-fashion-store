@@ -1,0 +1,27 @@
+{
+  "name": "the-fashion-store",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@fashion-store/web",
+    "dev:all": "concurrently -n WEB,API -c cyan,green \"npm run dev --workspace=@fashion-store/web\" \"npm run dev --workspace=@fashion-store/api\"",
+    "dev:web": "npm run dev --workspace=@fashion-store/web",
+    "dev:api": "npm run dev --workspace=@fashion-store/api",
+    "start": "npm run start --workspace=@fashion-store/api",
+    "build:api": "npm run build --workspace=@fashion-store/api",
+    "db:indexes": "npm run db:indexes --workspace=@fashion-store/api",
+    "build": "npm run build --workspace=@fashion-store/web && npm run build --workspace=@fashion-store/api",
+    "typecheck": "npm run typecheck --workspace=@fashion-store/web && npm run typecheck --workspace=@fashion-store/api",
+    "test": "npm run test --workspace=@fashion-store/api",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3"
+  }
+}

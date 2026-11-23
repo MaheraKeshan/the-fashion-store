@@ -9,10 +9,12 @@ import {
   updateCustomerProfileSchema,
   updateCustomerAddressSchema,
   changeCustomerPasswordSchema,
+  deleteCustomerAccountSchema,
   requestCustomerPasswordResetSchema,
   completeCustomerPasswordResetSchema,
 } from '../src/schemas/customer-auth.js';
 import { CustomerPasswordReset } from '../src/models/customer-password-reset.js';
+import { customerWishlistUpdateSchema } from '../src/schemas/customer-saved-items.js';
 
 test('customer registration normalizes email and rejects extra fields', () => {
   const result = customerRegistrationSchema.safeParse({
@@ -57,6 +59,8 @@ test('customer registration requires a secure-length password', () => {
 
 test('customer password and session secrets are excluded from default projections', () => {
   assert.equal(Customer.schema.path('passwordHash')?.options.select, false);
+  assert.equal(Customer.schema.path('cartItems')?.options.select, false);
+  assert.equal(Customer.schema.path('wishlistProductIds')?.options.select, false);
   assert.equal(CustomerSession.schema.path('tokenHash')?.options.select, false);
   assert.equal(CustomerSession.schema.path('csrfToken')?.options.select, false);
   assert.equal(CustomerSession.schema.path('expiresAt')?.options.expires, 0);
@@ -140,6 +144,18 @@ test('customer password change requires current and sufficiently long new passwo
   );
 });
 
+test('account deletion requires the current password and rejects extra fields', () => {
+  assert.equal(deleteCustomerAccountSchema.safeParse({ currentPassword: 'current-password' }).success, true);
+  assert.equal(deleteCustomerAccountSchema.safeParse({ currentPassword: '' }).success, false);
+  assert.equal(
+    deleteCustomerAccountSchema.safeParse({
+      currentPassword: 'current-password',
+      confirm: true,
+    }).success,
+    false,
+  );
+});
+
 test('password reset request and completion are strictly validated', () => {
   assert.equal(
     requestCustomerPasswordResetSchema.safeParse({
@@ -172,4 +188,23 @@ test('password reset request and completion are strictly validated', () => {
 test('password reset token hashes are excluded from default projections and expire', () => {
   assert.equal(CustomerPasswordReset.schema.path('tokenHash')?.options.select, false);
   assert.equal(CustomerPasswordReset.schema.path('expiresAt')?.options.expires, 0);
+});
+
+test('customer wishlist accepts empty lists and rejects duplicate or excessive product IDs', () => {
+  const firstProductId = '507f1f77bcf86cd799439011';
+  assert.equal(customerWishlistUpdateSchema.safeParse({ productIds: [] }).success, true);
+  assert.equal(
+    customerWishlistUpdateSchema.safeParse({
+      productIds: [firstProductId, firstProductId.toUpperCase()],
+    }).success,
+    false,
+  );
+  assert.equal(
+    customerWishlistUpdateSchema.safeParse({
+      productIds: Array.from({ length: 101 }, (_, index) =>
+        (index + 1).toString(16).padStart(24, '0'),
+      ),
+    }).success,
+    false,
+  );
 });

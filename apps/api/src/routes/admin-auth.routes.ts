@@ -2,6 +2,7 @@ import rateLimit from 'express-rate-limit';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { ZodError } from 'zod';
 import { env } from '../config/env.js';
+import { createRateLimitStore } from '../config/rate-limit-store.js';
 import { requireAdmin, getAdminContext } from '../middleware/admin-auth.js';
 import { adminLoginSchema } from '../schemas/admin-auth.js';
 import { createAdminSession, revokeAdminSession } from '../services/admin-auth.service.js';
@@ -10,8 +11,10 @@ import { clearAdminSessionCookie, setAdminSessionCookie } from '../utils/admin-s
 export const adminAuthRouter = Router();
 
 const adminLoginRateLimit = rateLimit({
+  store: createRateLimitStore('admin-login'),
   windowMs: 15 * 60 * 1000,
   limit: 5,
+  passOnStoreError: false,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

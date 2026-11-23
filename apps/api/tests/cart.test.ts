@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cartQuoteRequestSchema } from '../src/schemas/cart.js';
+import { cartQuoteRequestSchema, customerCartUpdateSchema } from '../src/schemas/cart.js';
 
 const firstVariantId = '507f1f77bcf86cd799439011';
 const secondVariantId = '507f1f77bcf86cd799439012';
@@ -51,4 +51,23 @@ test('cart quote rejects invalid quantities and more than 50 lines', () => {
 
   assert.equal(invalidQuantity.success, false);
   assert.equal(tooManyItems.success, false);
+});
+
+test('saved carts allow clearing but enforce the same item and quantity limits', () => {
+  assert.equal(customerCartUpdateSchema.safeParse({ items: [] }).success, true);
+  assert.equal(
+    customerCartUpdateSchema.safeParse({
+      items: [
+        { variantId: firstVariantId, quantity: 1 },
+        { variantId: firstVariantId.toUpperCase(), quantity: 1 },
+      ],
+    }).success,
+    false,
+  );
+  assert.equal(
+    customerCartUpdateSchema.safeParse({
+      items: [{ variantId: firstVariantId, quantity: 100 }],
+    }).success,
+    false,
+  );
 });

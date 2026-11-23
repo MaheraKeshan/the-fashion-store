@@ -1,6 +1,7 @@
 import mongoose, { Types } from 'mongoose';
 import { getDatabaseStatus } from '../config/database.js';
 import {
+  canAdvanceOrderStatus,
   canCancelOrder,
   canMarkCashReceived,
   getNextOrderStatuses,
@@ -79,7 +80,7 @@ export async function updateAdminOrderStatus(
   try {
     const updatedOrder = await session.withTransaction(async () => {
       const order = await Order.findOne({ orderNumber })
-        .select('_id status')
+        .select('_id status paymentMethod paymentStatus')
         .session(session)
         .lean()
         .exec();
@@ -94,7 +95,17 @@ export async function updateAdminOrderStatus(
         if (!currentOrder) throw new ProductServiceError('The order was not found.', 404);
         return currentOrder;
       }
-      if (!getNextOrderStatuses(currentStatus).includes(nextStatus)) {
+      if (
+        !canAdvanceOrderStatus(currentStatus, nextStatus, order.paymentMethod, order.paymentStatus)
+      ) {
+        if (
+          currentStatus === 'confirmed' &&
+          nextStatus === 'processing' &&
+          order.paymentMethod === 'payhere' &&
+          order.paymentStatus !== 'paid'
+        ) {
+          throw new ProductServiceError('PayHere orders must be paid before processing.', 409);
+        }
         throw new ProductServiceError(
           `An order cannot move from ${currentStatus} to ${nextStatus}.`,
           409,
@@ -419,10 +430,11 @@ function toAdminOrder(order: {
     ...(cancellation && { cancellation }),
     canCancel: canCancelOrder(status, paymentStatus),
     canMarkCashReceived:
-      order.paymentMethod === 'cash-on-delivery'
-      && canMarkCashReceived(status, paymentStatus),
+      order.paymentMethod === 'cash-on-delivery' && canMarkCashReceived(status, paymentStatus),
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
-    nextStatuses: getNextOrderStatuses(status),
+    nextStatuses: getNextOrderStatuses(status).filter((nextStatus) =>
+      canAdvanceOrderStatus(status, nextStatus, order.paymentMethod, paymentStatus),
+    ),
   };
 }

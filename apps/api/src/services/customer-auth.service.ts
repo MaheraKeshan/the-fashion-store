@@ -5,6 +5,7 @@ import { CUSTOMER_SESSION_TTL_MS } from '../constants/customer-session.js';
 import { Customer } from '../models/customer.js';
 import { CustomerSession } from '../models/customer-session.js';
 import { CustomerPasswordReset } from '../models/customer-password-reset.js';
+import { Order } from '../models/order.js';
 import { env } from '../config/env.js';
 import { ProductServiceError } from './product.service.js';
 
@@ -36,8 +37,7 @@ class PasswordHasher {
   }
 
   async verify(password: string, passwordHash: string) {
-    const [algorithm, cost, blockSize, parallelization, saltHex, keyHex] =
-      passwordHash.split('$');
+    const [algorithm, cost, blockSize, parallelization, saltHex, keyHex] = passwordHash.split('$');
     if (
       algorithm !== 'scrypt' ||
       cost !== String(this.cost) ||
@@ -105,7 +105,8 @@ class CustomerAuthService {
       .select('+passwordHash')
       .exec();
     let passwordMatches = false;
-    if (customer) passwordMatches = await this.passwordHasher.verify(password, customer.passwordHash);
+    if (customer)
+      passwordMatches = await this.passwordHasher.verify(password, customer.passwordHash);
     else await this.passwordHasher.derive(password, randomBytes(16));
     if (!customer || !passwordMatches) {
       throw new ProductServiceError('The email or password is incorrect.', 401);
@@ -170,18 +171,18 @@ class CustomerAuthService {
         ...(customer.phone && { phone: customer.phone }),
         ...(customer.deliveryAddress?.line1 &&
           customer.deliveryAddress.area && {
-          deliveryAddress: {
-            line1: customer.deliveryAddress.line1,
-            ...(customer.deliveryAddress.line2 && { line2: customer.deliveryAddress.line2 }),
-            area: customer.deliveryAddress.area,
-            ...(customer.deliveryAddress.postalCode && {
-              postalCode: customer.deliveryAddress.postalCode,
-            }),
-            ...(customer.deliveryAddress.instructions && {
-              instructions: customer.deliveryAddress.instructions,
-            }),
-          },
-        }),
+            deliveryAddress: {
+              line1: customer.deliveryAddress.line1,
+              ...(customer.deliveryAddress.line2 && { line2: customer.deliveryAddress.line2 }),
+              area: customer.deliveryAddress.area,
+              ...(customer.deliveryAddress.postalCode && {
+                postalCode: customer.deliveryAddress.postalCode,
+              }),
+              ...(customer.deliveryAddress.instructions && {
+                instructions: customer.deliveryAddress.instructions,
+              }),
+            },
+          }),
       },
       csrfToken: session.csrfToken,
       tokenHash,
@@ -245,13 +246,8 @@ class CustomerAuthService {
     newPassword: string,
   ) {
     this.assertDatabaseConnected();
-    const customer = await Customer.findById(context.actor.id)
-      .select('+passwordHash')
-      .exec();
-    if (
-      !customer ||
-      !(await this.passwordHasher.verify(currentPassword, customer.passwordHash))
-    ) {
+    const customer = await Customer.findById(context.actor.id).select('+passwordHash').exec();
+    if (!customer || !(await this.passwordHasher.verify(currentPassword, customer.passwordHash))) {
       throw new ProductServiceError('The current password is incorrect.', 401);
     }
     if (await this.passwordHasher.verify(newPassword, customer.passwordHash)) {
@@ -259,12 +255,108 @@ class CustomerAuthService {
     }
 
     const passwordHash = await this.passwordHasher.hash(newPassword);
-    customer.passwordHash = passwordHash;
-    await customer.save();
-    await CustomerSession.deleteMany({
-      customerId: customer._id,
-      tokenHash: { $ne: context.tokenHash },
-    }).exec();
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const update = await Customer.updateOne(
+          {
+            _id: customer._id,
+            isActive: true,
+            passwordHash: customer.passwordHash,
+          },
+          { $set: { passwordHash } },
+          { session, runValidators: true },
+        ).exec();
+        if (update.matchedCount !== 1) {
+          throw new ProductServiceError('The current password is incorrect.', 401);
+        }
+        await CustomerSession.deleteMany(
+          {
+            customerId: customer._id,
+            tokenHash: { $ne: context.tokenHash },
+          },
+          { session },
+        ).exec();
+      });
+    } catch (error) {
+      if (this.isTransactionUnsupportedError(error)) {
+        throw new ProductServiceError('Changing a password requires MongoDB transactions.', 503);
+      }
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  async deleteAccount(context: CustomerSessionContext, currentPassword: string) {
+    this.assertDatabaseConnected();
+    const customer = await Customer.findOne({ _id: context.actor.id, isActive: true })
+      .select('+passwordHash')
+      .exec();
+    if (!customer || !(await this.passwordHasher.verify(currentPassword, customer.passwordHash))) {
+      throw new ProductServiceError('The current password is incorrect.', 401);
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const activeSession = await CustomerSession.exists({
+          customerId: customer._id,
+          tokenHash: context.tokenHash,
+          expiresAt: { $gt: new Date() },
+        })
+          .session(session)
+          .exec();
+        if (!activeSession) {
+          throw new ProductServiceError('Your customer session has expired.', 401);
+        }
+
+        await Order.updateMany(
+          { customerId: customer._id },
+          {
+            $set: {
+              'customer.name': 'Deleted customer',
+              'customer.phone': 'REDACTED',
+              'deliveryAddress.line1': 'Removed',
+              'deliveryAddress.area': 'Removed',
+              requestHash: randomBytes(32).toString('hex'),
+            },
+            $unset: {
+              customerId: 1,
+              'customer.email': 1,
+              'deliveryAddress.line2': 1,
+              'deliveryAddress.postalCode': 1,
+              'deliveryAddress.instructions': 1,
+            },
+          },
+          { session, runValidators: true },
+        ).exec();
+
+        await CustomerSession.deleteMany({ customerId: customer._id }, { session }).exec();
+        await CustomerPasswordReset.deleteMany({ customerId: customer._id }, { session }).exec();
+        const deletedCustomer = await Customer.deleteOne(
+          {
+            _id: customer._id,
+            isActive: true,
+            passwordHash: customer.passwordHash,
+          },
+          { session },
+        ).exec();
+        if (deletedCustomer.deletedCount !== 1) {
+          throw new ProductServiceError(
+            'The account changed during deletion. Sign in and try again.',
+            409,
+          );
+        }
+      });
+    } catch (error) {
+      if (this.isTransactionUnsupportedError(error)) {
+        throw new ProductServiceError('Account deletion requires MongoDB transactions.', 503);
+      }
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   async listSessions(context: CustomerSessionContext) {
@@ -296,30 +388,41 @@ class CustomerAuthService {
 
   async requestPasswordReset(email: string) {
     this.assertDatabaseConnected();
-    const customer = await Customer.findOne({ email, isActive: true }).select('_id email').lean().exec();
+    const customer = await Customer.findOne({ email, isActive: true })
+      .select('_id email')
+      .lean()
+      .exec();
     if (!customer) return;
 
     await CustomerPasswordReset.deleteMany({ customerId: customer._id }).exec();
     const token = randomBytes(32).toString('base64url');
     const tokenHash = this.hashSessionToken(token);
-    const expiresAt = new Date(
-      Date.now() + env.PASSWORD_RESET_TTL_MINUTES * 60 * 1000,
-    );
+    const expiresAt = new Date(Date.now() + env.PASSWORD_RESET_TTL_MINUTES * 60 * 1000);
     await CustomerPasswordReset.create({ customerId: customer._id, tokenHash, expiresAt });
 
     if (env.PASSWORD_RESET_WEBHOOK_URL) {
-      await fetch(env.PASSWORD_RESET_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: customer.email,
-          resetToken: token,
-          expiresAt: expiresAt.toISOString(),
-          resetUrl: `${env.CLIENT_URL}/account/reset-password?token=${encodeURIComponent(token)}`,
-        }),
-      }).catch((error: unknown) => {
-        console.error('Password reset delivery webhook failed:', error);
-      });
+      try {
+        const response = await fetch(env.PASSWORD_RESET_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: customer.email,
+            resetToken: token,
+            expiresAt: expiresAt.toISOString(),
+            resetUrl: `${env.CLIENT_URL}/account/reset-password?token=${encodeURIComponent(token)}`,
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) {
+          console.error('Password reset delivery webhook returned an unsuccessful status.', {
+            status: response.status,
+          });
+        }
+      } catch (error) {
+        console.error('Password reset delivery webhook failed.', {
+          reason: error instanceof Error ? error.name : 'unknown',
+        });
+      }
     }
   }
 
@@ -334,9 +437,7 @@ class CustomerAuthService {
       throw new ProductServiceError('The password reset link is invalid or has expired.', 400);
     }
 
-    const customer = await Customer.findById(reset.customerId)
-      .select('+passwordHash')
-      .exec();
+    const customer = await Customer.findById(reset.customerId).select('+passwordHash').exec();
     if (!customer || !customer.isActive) {
       throw new ProductServiceError('The password reset request could not be completed.', 400);
     }
@@ -348,19 +449,26 @@ class CustomerAuthService {
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
-        await Customer.findByIdAndUpdate(
-          customer._id,
-          { passwordHash },
+        const consumedReset = await CustomerPasswordReset.findOneAndDelete({
+          _id: reset._id,
+          tokenHash,
+          expiresAt: { $gt: new Date() },
+        })
+          .session(session)
+          .exec();
+        if (!consumedReset) {
+          throw new ProductServiceError('The password reset link is invalid or has expired.', 400);
+        }
+        const updatedCustomer = await Customer.findOneAndUpdate(
+          { _id: customer._id, isActive: true, passwordHash: customer.passwordHash },
+          { $set: { passwordHash } },
           { session, runValidators: true },
         ).exec();
-        await CustomerPasswordReset.deleteMany(
-          { customerId: customer._id },
-          { session },
-        ).exec();
-        await CustomerSession.deleteMany(
-          { customerId: customer._id },
-          { session },
-        ).exec();
+        if (!updatedCustomer) {
+          throw new ProductServiceError('The password reset request could not be completed.', 400);
+        }
+        await CustomerPasswordReset.deleteMany({ customerId: customer._id }, { session }).exec();
+        await CustomerSession.deleteMany({ customerId: customer._id }, { session }).exec();
       });
     } catch (error) {
       if (this.isTransactionUnsupportedError(error)) {

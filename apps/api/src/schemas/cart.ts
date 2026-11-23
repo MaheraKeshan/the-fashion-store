@@ -7,9 +7,8 @@ const cartItemSchema = z
   })
   .strict();
 
-export const cartLineItemsSchema = z
+const uniqueCartItemsSchema = z
   .array(cartItemSchema)
-  .min(1)
   .max(50)
   .refine(
     (items) => new Set(items.map((item) => item.variantId.toLowerCase())).size === items.length,
@@ -17,6 +16,11 @@ export const cartLineItemsSchema = z
       message: 'Cart items must have unique variant IDs.',
     },
   );
+
+export const cartLineItemsSchema = uniqueCartItemsSchema.min(1);
+export const customerCartUpdateSchema = z
+  .object({ items: uniqueCartItemsSchema })
+  .strict();
 
 export const cartQuoteRequestSchema = z.object({ items: cartLineItemsSchema }).strict();
 

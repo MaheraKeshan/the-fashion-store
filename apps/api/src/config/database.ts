@@ -14,9 +14,15 @@ export async function connectDatabase(): Promise<boolean> {
     console.log('MongoDB connected successfully.');
     return true;
   } catch (error) {
-    console.error('MongoDB connection failed:', error);
+    console.error('MongoDB connection failed.', {
+      reason: error instanceof Error ? error.name : 'unknown',
+    });
     return false;
   }
+}
+
+export async function disconnectDatabase(): Promise<void> {
+  await mongoose.disconnect();
 }
 
 export function getDatabaseStatus(): 'connected' | 'disconnected' {
@@ -27,7 +33,7 @@ export async function assertProductionReplicaSet(): Promise<void> {
   if (env.NODE_ENV !== 'production') return;
   if (!mongoose.connection.db) throw new Error('MongoDB is not connected.');
 
-  const hello = await mongoose.connection.db.admin().command({ hello: 1 }) as {
+  const hello = (await mongoose.connection.db.admin().command({ hello: 1 })) as {
     setName?: string;
   };
   if (!hello.setName) {

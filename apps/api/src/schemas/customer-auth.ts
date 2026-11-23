@@ -62,6 +62,12 @@ export const changeCustomerPasswordSchema = z
   })
   .strict();
 
+export const deleteCustomerAccountSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(128),
+  })
+  .strict();
+
 export const requestCustomerPasswordResetSchema = z
   .object({
     email: emailSchema,

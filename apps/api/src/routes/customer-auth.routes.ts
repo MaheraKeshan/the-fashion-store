@@ -3,6 +3,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { ZodError } from 'zod';
 import { z } from 'zod';
 import { env } from '../config/env.js';
+import { createRateLimitStore } from '../config/rate-limit-store.js';
 import { getCustomerContext, requireCustomer } from '../middleware/customer-auth.js';
 import {
   customerLoginSchema,
@@ -10,10 +11,19 @@ import {
   updateCustomerProfileSchema,
   updateCustomerAddressSchema,
   changeCustomerPasswordSchema,
+  deleteCustomerAccountSchema,
   requestCustomerPasswordResetSchema,
   completeCustomerPasswordResetSchema,
 } from '../schemas/customer-auth.js';
+import { customerWishlistUpdateSchema } from '../schemas/customer-saved-items.js';
+import { customerCartUpdateSchema } from '../schemas/cart.js';
 import { customerAuthService } from '../services/customer-auth.service.js';
+import {
+  getCustomerCart,
+  getCustomerWishlist,
+  replaceCustomerCart,
+  replaceCustomerWishlist,
+} from '../services/customer-saved-items.service.js';
 import {
   clearCustomerSessionCookie,
   setCustomerSessionCookie,
@@ -33,16 +43,20 @@ const customerOrdersQuerySchema = z
   .strict();
 
 const customerAuthRateLimit = rateLimit({
+  store: createRateLimitStore('customer-auth'),
   windowMs: 15 * 60 * 1000,
   limit: 10,
+  passOnStoreError: false,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many account attempts. Please wait and try again.' },
 });
 
 const passwordResetRequestRateLimit = rateLimit({
+  store: createRateLimitStore('password-reset-request'),
   windowMs: 15 * 60 * 1000,
   limit: 5,
+  passOnStoreError: false,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -51,9 +65,34 @@ const passwordResetRequestRateLimit = rateLimit({
   },
 });
 
+const passwordResetCompletionRateLimit = rateLimit({
+  store: createRateLimitStore('password-reset-completion'),
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  passOnStoreError: false,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many password reset attempts. Please wait and try again.',
+  },
+});
+
+const accountDeletionRateLimit = rateLimit({
+  store: createRateLimitStore('customer-account-deletion'),
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  passOnStoreError: false,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many account deletion attempts. Please wait.' },
+});
+
 function requireSameOrigin(req: Request, res: Response, next: NextFunction) {
   if (req.get('origin') !== new URL(env.CLIENT_URL).origin) {
-    res.status(403).json({ success: false, message: 'Account requests must come from the store website.' });
+    res
+      .status(403)
+      .json({ success: false, message: 'Account requests must come from the store website.' });
     return;
   }
   next();
@@ -74,7 +113,11 @@ customerAuthRouter.post(
       });
     } catch (error) {
       if (error instanceof ZodError) {
-        res.status(400).json({ success: false, message: 'Enter a valid name, email and password.', errors: error.issues });
+        res.status(400).json({
+          success: false,
+          message: 'Enter a valid name, email and password.',
+          errors: error.issues,
+        });
         return;
       }
       next(error);
@@ -82,23 +125,32 @@ customerAuthRouter.post(
   },
 );
 
-customerAuthRouter.post('/login', requireSameOrigin, customerAuthRateLimit, async (req, res, next) => {
-  try {
-    const input = customerLoginSchema.parse(req.body);
-    const session = await customerAuthService.login(input.email, input.password);
-    setCustomerSessionCookie(res, session.token);
-    res.status(200).json({
-      success: true,
-      data: { user: session.user, csrfToken: session.csrfToken, expiresAt: session.expiresAt },
-    });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      res.status(400).json({ success: false, message: 'Enter a valid email address and password.', errors: error.issues });
-      return;
+customerAuthRouter.post(
+  '/login',
+  requireSameOrigin,
+  customerAuthRateLimit,
+  async (req, res, next) => {
+    try {
+      const input = customerLoginSchema.parse(req.body);
+      const session = await customerAuthService.login(input.email, input.password);
+      setCustomerSessionCookie(res, session.token);
+      res.status(200).json({
+        success: true,
+        data: { user: session.user, csrfToken: session.csrfToken, expiresAt: session.expiresAt },
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({
+          success: false,
+          message: 'Enter a valid email address and password.',
+          errors: error.issues,
+        });
+        return;
+      }
+      next(error);
     }
-    next(error);
-  }
-});
+  },
+);
 
 customerAuthRouter.post(
   '/password-reset/request',
@@ -132,6 +184,7 @@ customerAuthRouter.post(
 customerAuthRouter.post(
   '/password-reset/complete',
   requireSameOrigin,
+  passwordResetCompletionRateLimit,
   async (req, res, next) => {
     try {
       const input = completeCustomerPasswordResetSchema.parse(req.body);
@@ -171,25 +224,59 @@ customerAuthRouter.get('/session', requireCustomer, (_req, res) => {
   });
 });
 
-customerAuthRouter.patch(
-  '/profile',
+customerAuthRouter.get('/cart', requireCustomer, async (_req, res, next) => {
+  try {
+    const cart = await getCustomerCart(getCustomerContext(res).actor.id);
+    res.status(200).json({ success: true, data: cart });
+  } catch (error) {
+    next(error);
+  }
+});
+
+customerAuthRouter.put('/cart', requireSameOrigin, requireCustomer, async (req, res, next) => {
+  try {
+    const input = customerCartUpdateSchema.parse(req.body);
+    const cart = await replaceCustomerCart(getCustomerContext(res).actor.id, input.items);
+    res.status(200).json({ success: true, data: cart });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({
+        success: false,
+        message: 'Enter valid shopping bag items.',
+        errors: error.issues,
+      });
+      return;
+    }
+    next(error);
+  }
+});
+
+customerAuthRouter.get('/wishlist', requireCustomer, async (_req, res, next) => {
+  try {
+    const wishlist = await getCustomerWishlist(getCustomerContext(res).actor.id);
+    res.status(200).json({ success: true, data: wishlist });
+  } catch (error) {
+    next(error);
+  }
+});
+
+customerAuthRouter.put(
+  '/wishlist',
   requireSameOrigin,
   requireCustomer,
   async (req, res, next) => {
     try {
-      const input = updateCustomerProfileSchema.parse(req.body);
-      const context = getCustomerContext(res);
-      const user = await customerAuthService.updateProfile(
-        context.actor.id,
-        input.name,
-        input.phone,
+      const input = customerWishlistUpdateSchema.parse(req.body);
+      const wishlist = await replaceCustomerWishlist(
+        getCustomerContext(res).actor.id,
+        input.productIds,
       );
-      res.status(200).json({ success: true, data: { user } });
+      res.status(200).json({ success: true, data: wishlist });
     } catch (error) {
       if (error instanceof ZodError) {
         res.status(400).json({
           success: false,
-          message: 'Enter a valid name and Sri Lankan mobile number.',
+          message: 'Enter valid wishlist products.',
           errors: error.issues,
         });
         return;
@@ -198,6 +285,25 @@ customerAuthRouter.patch(
     }
   },
 );
+
+customerAuthRouter.patch('/profile', requireSameOrigin, requireCustomer, async (req, res, next) => {
+  try {
+    const input = updateCustomerProfileSchema.parse(req.body);
+    const context = getCustomerContext(res);
+    const user = await customerAuthService.updateProfile(context.actor.id, input.name, input.phone);
+    res.status(200).json({ success: true, data: { user } });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({
+        success: false,
+        message: 'Enter a valid name and Sri Lankan mobile number.',
+        errors: error.issues,
+      });
+      return;
+    }
+    next(error);
+  }
+});
 
 customerAuthRouter.patch(
   '/delivery-address',
@@ -232,6 +338,31 @@ customerAuthRouter.post('/logout', requireCustomer, async (_req, res, next) => {
     next(error);
   }
 });
+
+customerAuthRouter.delete(
+  '/account',
+  requireSameOrigin,
+  accountDeletionRateLimit,
+  requireCustomer,
+  async (req, res, next) => {
+    try {
+      const input = deleteCustomerAccountSchema.parse(req.body);
+      await customerAuthService.deleteAccount(getCustomerContext(res), input.currentPassword);
+      clearCustomerSessionCookie(res);
+      res.status(200).json({ success: true, data: { accountDeleted: true } });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({
+          success: false,
+          message: 'Confirm account deletion with your current password.',
+          errors: error.issues,
+        });
+        return;
+      }
+      next(error);
+    }
+  },
+);
 
 customerAuthRouter.patch(
   '/password',
@@ -288,10 +419,16 @@ customerAuthRouter.get('/orders', requireCustomer, async (req, res, next) => {
     const query = customerOrdersQuerySchema.parse(req.query);
     const context = getCustomerContext(res);
     const result = await listCustomerOrders(context.actor.id, query.cursor, query.limit);
-    res.status(200).json({ success: true, data: result.data, pagination: { nextCursor: result.nextCursor } });
+    res
+      .status(200)
+      .json({ success: true, data: result.data, pagination: { nextCursor: result.nextCursor } });
   } catch (error) {
     if (error instanceof ZodError) {
-      res.status(400).json({ success: false, message: 'Invalid order history parameters.', errors: error.issues });
+      res.status(400).json({
+        success: false,
+        message: 'Invalid order history parameters.',
+        errors: error.issues,
+      });
       return;
     }
     next(error);

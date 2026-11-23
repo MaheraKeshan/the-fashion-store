@@ -23,6 +23,19 @@ export function getNextOrderStatuses(status: OrderStatus): readonly OrderStatus[
   return nextOrderStatuses[status];
 }
 
+export function canAdvanceOrderStatus(
+  status: OrderStatus,
+  nextStatus: OrderStatus,
+  paymentMethod: 'cash-on-delivery' | 'payhere',
+  paymentStatus: PaymentStatus,
+): boolean {
+  if (!nextOrderStatuses[status].includes(nextStatus)) return false;
+  if (nextStatus === 'processing' && paymentMethod === 'payhere' && paymentStatus !== 'paid') {
+    return false;
+  }
+  return true;
+}
+
 export function canCancelOrder(status: OrderStatus, paymentStatus: PaymentStatus): boolean {
   return (status === 'pending' || status === 'confirmed') && paymentStatus === 'unpaid';
 }

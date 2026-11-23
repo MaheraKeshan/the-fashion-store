@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  canAdvanceOrderStatus,
   canCancelOrder,
   canMarkCashReceived,
   getNextOrderStatuses,
@@ -37,6 +38,12 @@ test('admin status updates only permit the next fulfillment state', () => {
   assert.deepEqual(getNextOrderStatuses('shipped'), ['delivered']);
   assert.deepEqual(getNextOrderStatuses('delivered'), []);
   assert.deepEqual(getNextOrderStatuses('cancelled'), []);
+  assert.equal(
+    canAdvanceOrderStatus('confirmed', 'processing', 'cash-on-delivery', 'unpaid'),
+    true,
+  );
+  assert.equal(canAdvanceOrderStatus('confirmed', 'processing', 'payhere', 'paid'), true);
+  assert.equal(canAdvanceOrderStatus('confirmed', 'processing', 'payhere', 'unpaid'), false);
 });
 
 test('cancellation is limited to orders not yet processing', () => {

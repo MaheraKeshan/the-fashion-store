@@ -1,0 +1,36 @@
+name: Backend checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      RATE_LIMIT_REDIS_URL: redis://127.0.0.1:6379
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck --workspace=@fashion-store/api
+      - run: npm run test --workspace=@fashion-store/api
+      - run: npm run test:integration --workspace=@fashion-store/api
+      - run: npm run build --workspace=@fashion-store/api
+      - run: npm audit --omit=dev --audit-level=moderate

@@ -1,6 +1,9 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
-import { customerAuthService, type CustomerSessionContext } from '../services/customer-auth.service.js';
+import {
+  customerAuthService,
+  type CustomerSessionContext,
+} from '../services/customer-auth.service.js';
 import { readCustomerSessionCookie } from '../utils/customer-session-cookie.js';
 import { ProductServiceError } from '../services/product.service.js';
 
@@ -20,11 +23,10 @@ export async function requireCustomer(req: Request, res: Response, next: NextFun
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const provided = Buffer.from(req.get('x-csrf-token') ?? '', 'utf8');
       const expected = Buffer.from(context.csrfToken, 'utf8');
-      if (
-        provided.length !== expected.length ||
-        !timingSafeEqual(provided, expected)
-      ) {
-        res.status(403).json({ success: false, message: 'The security token is invalid or missing.' });
+      if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+        res
+          .status(403)
+          .json({ success: false, message: 'The security token is invalid or missing.' });
         return;
       }
     }
@@ -58,8 +60,9 @@ export async function attachOptionalCustomer(req: Request, res: Response, next: 
     }
     const context = await customerAuthService.resolveSession(token);
     if (context) res.locals.customerContext = context;
-  } catch {
-    // Checkout remains available to guests if account-session lookup fails.
+  } catch (error) {
+    next(error);
+    return;
   }
   next();
 }

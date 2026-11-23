@@ -36,7 +36,7 @@ const orderSchema = new Schema(
   {
     orderNumber: { type: String, required: true, unique: true, immutable: true },
     idempotencyKey: { type: String, required: true, unique: true, immutable: true },
-    requestHash: { type: String, immutable: true, select: false },
+    requestHash: { type: String, select: false },
     customerId: { type: Schema.Types.ObjectId, ref: 'Customer', index: true },
     customer: {
       name: { type: String, required: true, trim: true },
